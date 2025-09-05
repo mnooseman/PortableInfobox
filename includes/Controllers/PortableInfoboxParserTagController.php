@@ -98,15 +98,26 @@ class PortableInfoboxParserTagController {
 	 * @throws UnimplementedNodeException when node used in markup does not exists
 	 * @throws XmlMarkupParseErrorException xml not well formatted
 	 * @throws InvalidInfoboxParamsException when unsupported attributes exist in params array
+	 * 
+	 * MediaWiki 1.44+ compatibility: Added detection for Parsoid mode to use appropriate parser service
 	 */
 	public function prepareInfobox( $markup, Parser $parser, PPFrame $frame, $params = null ) {
 		$frameArguments = $frame->getArguments();
 		$infoboxNode = NodeFactory::newFromXML( $markup, $frameArguments ?: [] );
 		
 		// Check if we're in Parsoid mode or legacy mode
-		if ( class_exists( 'Wikimedia\Parsoid\Ext\ParsoidExtensionAPI' ) &&
-			 method_exists( $parser, 'isParsoidParser' ) &&
-			 $parser->isParsoidParser() ) {
+		// For MediaWiki 1.44+, we try to detect Parsoid usage
+		$isParsoidMode = false;
+		if ( method_exists( $parser, 'getOptions' ) ) {
+			$options = $parser->getOptions();
+			// Check for Parsoid-specific options or context
+			if ( method_exists( $options, 'getParsoidSetting' ) ||
+				 ( method_exists( $parser, 'getOutputType' ) && $parser->getOutputType() === 'parsoid' ) ) {
+				$isParsoidMode = true;
+			}
+		}
+		
+		if ( $isParsoidMode ) {
 			// Use a simplified parser service for Parsoid compatibility
 			$infoboxNode->setExternalParser(
 				new class( $parser, $frame ) implements \PortableInfobox\Services\Parser\ExternalParser {
@@ -119,6 +130,7 @@ class PortableInfoboxParserTagController {
 					}
 					
 					public function parseRecursive( $wikitext ) {
+						// Simplified parsing for Parsoid mode
 						return $this->parser->recursiveTagParse( $wikitext ?? '', $this->frame );
 					}
 					

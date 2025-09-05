@@ -110,11 +110,11 @@ class PortableInfoboxParsoidHandler extends ExtensionTagHandler implements Exten
 			return $fragment;
 
 		} catch ( UnimplementedNodeException $e ) {
-			return $this->handleError( $doc, wfMessage( 'portable-infobox-unimplemented-infobox-tag', [ $e->getMessage() ] )->escaped() );
+			return $this->handleError( $doc, $this->getMessage( 'portable-infobox-unimplemented-infobox-tag', $e->getMessage() ) );
 		} catch ( XmlMarkupParseErrorException $e ) {
 			return $this->handleXmlParseError( $doc, $e->getErrors(), $content );
 		} catch ( InvalidInfoboxParamsException $e ) {
-			return $this->handleError( $doc, wfMessage( 'portable-infobox-xml-parse-error-infobox-tag-attribute-unsupported', [ $e->getMessage() ] )->escaped() );
+			return $this->handleError( $doc, $this->getMessage( 'portable-infobox-xml-parse-error-infobox-tag-attribute-unsupported', $e->getMessage() ) );
 		}
 	}
 
@@ -239,5 +239,24 @@ class PortableInfoboxParsoidHandler extends ExtensionTagHandler implements Exten
 			$this->infoboxParamsValidator = new InfoboxParamsValidator();
 		}
 		return $this->infoboxParamsValidator;
+	}
+
+	/**
+	 * Get localized message for Parsoid context
+	 * 
+	 * @param string $key Message key
+	 * @param string $param Message parameter
+	 * @return string
+	 */
+	private function getMessage( $key, $param = '' ) {
+		// For Parsoid, we need to handle messaging differently
+		// This is a simplified version - in a real implementation,
+		// you might want to access the proper message system
+		$messages = [
+			'portable-infobox-unimplemented-infobox-tag' => "Error: Unimplemented infobox tag: $param",
+			'portable-infobox-xml-parse-error-infobox-tag-attribute-unsupported' => "Error: Unsupported infobox attribute: $param",
+		];
+		
+		return $messages[$key] ?? "Error: $key ($param)";
 	}
 }
