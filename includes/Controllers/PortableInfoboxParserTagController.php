@@ -102,9 +102,42 @@ class PortableInfoboxParserTagController {
 	public function prepareInfobox( $markup, Parser $parser, PPFrame $frame, $params = null ) {
 		$frameArguments = $frame->getArguments();
 		$infoboxNode = NodeFactory::newFromXML( $markup, $frameArguments ?: [] );
-		$infoboxNode->setExternalParser(
-			new MediaWikiParserService( $parser, $frame )
-		);
+		
+		// Check if we're in Parsoid mode or legacy mode
+		if ( class_exists( 'Wikimedia\Parsoid\Ext\ParsoidExtensionAPI' ) &&
+			 method_exists( $parser, 'isParsoidParser' ) &&
+			 $parser->isParsoidParser() ) {
+			// Use a simplified parser service for Parsoid compatibility
+			$infoboxNode->setExternalParser(
+				new class( $parser, $frame ) implements \PortableInfobox\Services\Parser\ExternalParser {
+					private $parser;
+					private $frame;
+					
+					public function __construct( $parser, $frame ) {
+						$this->parser = $parser;
+						$this->frame = $frame;
+					}
+					
+					public function parseRecursive( $wikitext ) {
+						return $this->parser->recursiveTagParse( $wikitext ?? '', $this->frame );
+					}
+					
+					public function replaceVariables( $wikitext ) {
+						return $this->parser->replaceVariables( $wikitext, $this->frame );
+					}
+					
+					public function addImage( \MediaWiki\Title\Title $title, array $sizeParams ): ?string {
+						$this->parser->getOutput()->addImage( $title->getDBkey(), null, null );
+						return null;
+					}
+				}
+			);
+		} else {
+			// Use traditional MediaWiki parser service
+			$infoboxNode->setExternalParser(
+				new MediaWikiParserService( $parser, $frame )
+			);
+		}
 
 		// get params if not overridden
 		if ( !isset( $params ) ) {

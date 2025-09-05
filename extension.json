@@ -11,7 +11,7 @@
 	"type": "parserhook",
 	"license-name": "GPL-3.0-or-later",
 	"requires": {
-		"MediaWiki": ">= 1.43.0"
+		"MediaWiki": ">= 1.44.0"
 	},
 	"config": {
 		"AllInfoboxesExcludedSubpages": {
@@ -112,6 +112,9 @@
 		"MultiContentSave": "PortableInfobox\\Hooks::onMultiContentSave",
 		"ResourceLoaderRegisterModules": "PortableInfobox\\Hooks::onResourceLoaderRegisterModules"
 	},
+	"ParsoidModules": [
+		"PortableInfobox\\Controllers\\PortableInfoboxParsoidHandler"
+	],
 	"SpecialPages": {
 		"AllInfoboxes": "PortableInfobox\\Specials\\AllInfoboxesQueryPage",
 		"PortableInfoboxBuilder": "PortableInfobox\\Specials\\SpecialPortableInfoboxBuilder"
