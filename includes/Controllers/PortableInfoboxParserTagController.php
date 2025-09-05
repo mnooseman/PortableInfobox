@@ -98,13 +98,58 @@ class PortableInfoboxParserTagController {
 	 * @throws UnimplementedNodeException when node used in markup does not exists
 	 * @throws XmlMarkupParseErrorException xml not well formatted
 	 * @throws InvalidInfoboxParamsException when unsupported attributes exist in params array
+	 * 
+	 * MediaWiki 1.44+ compatibility: Added detection for Parsoid mode to use appropriate parser service
 	 */
 	public function prepareInfobox( $markup, Parser $parser, PPFrame $frame, $params = null ) {
 		$frameArguments = $frame->getArguments();
 		$infoboxNode = NodeFactory::newFromXML( $markup, $frameArguments ?: [] );
-		$infoboxNode->setExternalParser(
-			new MediaWikiParserService( $parser, $frame )
-		);
+		
+		// Check if we're in Parsoid mode or legacy mode
+		// For MediaWiki 1.44+, we try to detect Parsoid usage
+		$isParsoidMode = false;
+		if ( method_exists( $parser, 'getOptions' ) ) {
+			$options = $parser->getOptions();
+			// Check for Parsoid-specific options or context
+			if ( method_exists( $options, 'getParsoidSetting' ) ||
+				 ( method_exists( $parser, 'getOutputType' ) && $parser->getOutputType() === 'parsoid' ) ) {
+				$isParsoidMode = true;
+			}
+		}
+		
+		if ( $isParsoidMode ) {
+			// Use a simplified parser service for Parsoid compatibility
+			$infoboxNode->setExternalParser(
+				new class( $parser, $frame ) implements \PortableInfobox\Services\Parser\ExternalParser {
+					private $parser;
+					private $frame;
+					
+					public function __construct( $parser, $frame ) {
+						$this->parser = $parser;
+						$this->frame = $frame;
+					}
+					
+					public function parseRecursive( $wikitext ) {
+						// Simplified parsing for Parsoid mode
+						return $this->parser->recursiveTagParse( $wikitext ?? '', $this->frame );
+					}
+					
+					public function replaceVariables( $wikitext ) {
+						return $this->parser->replaceVariables( $wikitext, $this->frame );
+					}
+					
+					public function addImage( \MediaWiki\Title\Title $title, array $sizeParams ): ?string {
+						$this->parser->getOutput()->addImage( $title->getDBkey(), null, null );
+						return null;
+					}
+				}
+			);
+		} else {
+			// Use traditional MediaWiki parser service
+			$infoboxNode->setExternalParser(
+				new MediaWikiParserService( $parser, $frame )
+			);
+		}
 
 		// get params if not overridden
 		if ( !isset( $params ) ) {
